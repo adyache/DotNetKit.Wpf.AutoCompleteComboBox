@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -138,6 +139,7 @@ namespace DotNetKit.Windows.Controls
 
             public void Dispose()
             {
+                Debug.WriteLine($"Presrever dispose: '{textBox.Text}' [{textBox.SelectionStart}, {textBox.SelectionLength}] => '{text}' [{selectionStart}, {selectionLength}]");
                 textBox.Text = text;
                 textBox.Select(selectionStart, selectionLength);
             }
@@ -148,6 +150,7 @@ namespace DotNetKit.Windows.Controls
                 selectionStart = textBox.SelectionStart;
                 selectionLength = textBox.SelectionLength;
                 text = textBox.Text;
+                Debug.WriteLine($"Presrever constructor: '{text}' [{selectionStart}, {selectionLength}]");
             }
         }
 
@@ -167,8 +170,8 @@ namespace DotNetKit.Windows.Controls
 
         void Unselect()
         {
-            var textBox = EditableTextBox;
-            textBox.Select(textBox.SelectionStart + textBox.SelectionLength, 0);
+            //var textBox = EditableTextBox;
+            //textBox.Select(textBox.SelectionStart + textBox.SelectionLength, 0);
         }
 
         void UpdateFilter(Predicate<object> filter)
@@ -183,9 +186,12 @@ namespace DotNetKit.Windows.Controls
 
         void OpenDropDown(Predicate<object> filter)
         {
-            UpdateFilter(filter);
-            IsDropDownOpen = true;
-            Unselect();
+            using (new TextBoxStatePreserver(EditableTextBox))
+            {
+                UpdateFilter(filter);
+                IsDropDownOpen = true;
+                Unselect();
+            }
         }
 
         void OpenDropDown()
@@ -194,15 +200,24 @@ namespace DotNetKit.Windows.Controls
             OpenDropDown(filter);
         }
 
+        protected override void OnSelectionChanged(SelectionChangedEventArgs e)
+        {
+            using (NextEventDepth)
+            {
+                base.OnSelectionChanged(e);
+            }
+        }
+
         void UpdateSuggestionList()
         {
-            var text = Text;
+            var text = TextWithoutAutocomplete;
 
             if (text == previousText) return;
             previousText = text;
 
-            if (string.IsNullOrEmpty(text))
+            if (string.IsNullOrEmpty(Text))
             {
+                Debug.WriteLine("Update suggestion list - clearing selection, resetting filter");
                 IsDropDownOpen = false;
                 SelectedItem = null;
 
@@ -211,31 +226,63 @@ namespace DotNetKit.Windows.Controls
                     Items.Filter = defaultItemsFilter;
                 }
             }
-            else if (SelectedItem != null && TextFromItem(SelectedItem) == text)
+            else if (false && SelectedItem != null && TextFromItem(SelectedItem) == text)
             {
                 // It seems the user selected an item.
                 // Do nothing.
             }
             else
             {
-                using (new TextBoxStatePreserver(EditableTextBox))
+                using (NextEventDepth)
                 {
-                    SelectedItem = null;
-                }
 
-                var filter = GetFilter();
-                var maxCount = SettingOrDefault.MaxSuggestionCount;
-                var count = CountWithMax(ItemsSource?.Cast<object>() ?? Enumerable.Empty<object>(), filter, maxCount);
+                    //using (new TextBoxStatePreserver(EditableTextBox))
+                    //{
+                    //    Debug.WriteLine("Setting selected item to null");
+                    //    SelectedItem = null;
+                    //}
 
-                if (0 < count && count <= maxCount)
-                {
-                    OpenDropDown(filter);
+                    var filter = GetFilter();
+                    var maxCount = SettingOrDefault.MaxSuggestionCount;
+                    var count = CountWithMax(ItemsSource?.Cast<object>() ?? Enumerable.Empty<object>(), filter, maxCount);
+                    UpdateFilter(filter);
+
+                    if (1 < count && count <= maxCount)
+                    {
+                        using (new TextBoxStatePreserver(EditableTextBox))
+                        {
+                            IsDropDownOpen = true; //OpenDropDown(filter);
+                        }
+                    }
                 }
             }
         }
 
+        private IDisposable NextEventDepth => new EventDepthTracker(this);
+
+        private class EventDepthTracker : IDisposable
+        {
+            private readonly AutoCompleteComboBox _combo;
+
+            public EventDepthTracker(AutoCompleteComboBox combo)
+            {
+                _combo = combo;
+                _combo._eventDepth++;
+            }
+
+            public void Dispose()
+            {
+                _combo._eventDepth--;
+            }
+        }
+
+        private int _eventDepth;
+
         void OnTextChanged(object sender, TextChangedEventArgs e)
         {
+            if (_eventDepth > 0) return;
+
+            Debug.WriteLine($"OnTextChanged. Open: {IsDropDownOpen} Text: '{Text}' Selection: [{EditableTextBox.SelectionStart}, {EditableTextBox.SelectionLength}], Selected item: {SelectedItem != null}");
             var id = unchecked(++revisionId);
             var setting = SettingOrDefault;
 
@@ -262,6 +309,14 @@ namespace DotNetKit.Windows.Controls
         }
         #endregion
 
+        /* Progress
+         * Selecting an item from dropdown (keyboard or mouse) resets filter.  Shouldn't until dropdown is closed
+         * Selecting an item from dropdown: keyboard doesn't work (sometimes?), mouse resets filter (ok) and doesn't clear (ok)
+         * Keeping autosearch item doesn't reset filter.  Even if closing dropdown is made to reset filter, keeping autosearch may never open the dropdown if there's only 1 suggestion.
+         * Closing dropdown should probably reset filter.
+         * Opening dropdown by the user should reset filter? unless non-empty text selection as after an autocomplete
+         */
+
         void ComboBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.Space)
@@ -269,11 +324,34 @@ namespace DotNetKit.Windows.Controls
                 OpenDropDown();
                 e.Handled = true;
             }
+            else if (TextWithoutAutocomplete == string.Empty && (Keyboard.Modifiers & ~ModifierKeys.Shift) == ModifierKeys.None && e.IsDown && e.Key is >= Key.D0 and <= Key.Z)
+            {
+                Debug.WriteLine("Key preview - Clearing selection, resetting filter");
+                IsDropDownOpen = false;
+                SelectedItem = null;
+
+                using (Items.DeferRefresh())
+                {
+                    Items.Filter = defaultItemsFilter;
+                }
+            }
+        }
+
+        private string TextWithoutAutocomplete
+        {
+            get
+            {
+                var selectionLength = EditableTextBox.SelectionLength;
+                var text = Text;
+                return selectionLength == 0 
+                    ? text 
+                    : text.Remove(EditableTextBox.SelectionStart, selectionLength);
+            }
         }
 
         Predicate<object> GetFilter()
         {
-            var filter = SettingOrDefault.GetFilter(Text, TextFromItem);
+            var filter = SettingOrDefault.GetFilter(TextWithoutAutocomplete, TextFromItem);
 
             return defaultItemsFilter != null
                 ? i => defaultItemsFilter(i) && filter(i)
