@@ -44,7 +44,7 @@ namespace DotNetKit.Windows.Controls
         /// </summary>
         public virtual TimeSpan Delay
         {
-            get { return TimeSpan.FromMilliseconds(300.0); }
+            get { return TimeSpan.FromMilliseconds(200.0); }
         }
 
         static AutoCompleteComboBoxSetting @default = new AutoCompleteComboBoxSetting();
