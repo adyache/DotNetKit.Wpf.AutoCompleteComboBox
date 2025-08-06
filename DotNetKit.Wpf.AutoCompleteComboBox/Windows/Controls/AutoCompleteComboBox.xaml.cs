@@ -20,22 +20,17 @@ namespace DotNetKit.Windows.Controls
     /// </summary>
     public partial class AutoCompleteComboBox : ComboBox
     {
-        readonly SerialDisposable disposable = new SerialDisposable();
+        private readonly SerialDisposable _disposable = new();
 
-        TextBox editableTextBoxCache;
-
-        Predicate<object> defaultItemsFilter;
+        private TextBox _editableTextBoxCache;
+        private Predicate<object> _defaultItemsFilter;
 
         public TextBox EditableTextBox
         {
             get
-            {
-                if (editableTextBoxCache == null)
                 {
                     const string name = "PART_EditableTextBox";
-                    editableTextBoxCache = (TextBox)VisualTreeModule.FindChild(this, name);
-                }
-                return editableTextBoxCache;
+                return _editableTextBoxCache ??= (TextBox)VisualTreeModule.FindChild(this, name);
             }
         }
 
@@ -44,7 +39,7 @@ namespace DotNetKit.Windows.Controls
         /// Never null.
         /// </summary>
         /// <param name="item"/>
-        string TextFromItem(object item)
+        private string TextFromItem(object item)
         {
             if (item == null) return string.Empty;
 
@@ -54,36 +49,31 @@ namespace DotNetKit.Windows.Controls
         }
 
         #region ItemsSource
-        public static new readonly DependencyProperty ItemsSourceProperty =
+        public new static readonly DependencyProperty ItemsSourceProperty =
             DependencyProperty.Register(nameof(ItemsSource), typeof(IEnumerable), typeof(AutoCompleteComboBox),
                 new PropertyMetadata(null, ItemsSourcePropertyChanged));
+
         public new IEnumerable ItemsSource
         {
-            get
-            {
-                return (IEnumerable)GetValue(ItemsSourceProperty);
-            }
-            set
-            {
-                SetValue(ItemsSourceProperty, value);
-            }
+            get => (IEnumerable)GetValue(ItemsSourceProperty);
+            set => SetValue(ItemsSourceProperty, value);
         }
 
-        private static void ItemsSourcePropertyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs dpcea)
+        private static void ItemsSourcePropertyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
         {
             var comboBox = (ComboBox)dependencyObject;
             var previousSelectedItem = comboBox.SelectedItem;
 
-            if (dpcea.NewValue is ICollectionView cv)
+            if (e.NewValue is ICollectionView cv)
             {
-                ((AutoCompleteComboBox)dependencyObject).defaultItemsFilter = cv.Filter;
+                ((AutoCompleteComboBox)dependencyObject)._defaultItemsFilter = cv.Filter;
                 comboBox.ItemsSource = cv;
             }
             else
             {
-                ((AutoCompleteComboBox)dependencyObject).defaultItemsFilter = null;
-                IEnumerable newValue = dpcea.NewValue as IEnumerable;
-                CollectionViewSource newCollectionViewSource = new CollectionViewSource
+                ((AutoCompleteComboBox)dependencyObject)._defaultItemsFilter = null;
+                var newValue = e.NewValue as IEnumerable;
+                var newCollectionViewSource = new CollectionViewSource
                 {
                     Source = newValue
                 };
@@ -101,45 +91,40 @@ namespace DotNetKit.Windows.Controls
         #endregion ItemsSource
 
         #region Setting
-        static readonly DependencyProperty settingProperty =
+
+        public static readonly DependencyProperty SettingProperty =
             DependencyProperty.Register(
-                "Setting",
+                nameof(Setting),
                 typeof(AutoCompleteComboBoxSetting),
                 typeof(AutoCompleteComboBox)
             );
 
-        public static DependencyProperty SettingProperty
-        {
-            get { return settingProperty; }
-        }
-
         public AutoCompleteComboBoxSetting Setting
         {
-            get { return (AutoCompleteComboBoxSetting)GetValue(SettingProperty); }
-            set { SetValue(SettingProperty, value); }
+            get => (AutoCompleteComboBoxSetting)GetValue(SettingProperty);
+            set => SetValue(SettingProperty, value);
         }
 
-        AutoCompleteComboBoxSetting SettingOrDefault
-        {
-            get { return Setting ?? AutoCompleteComboBoxSetting.Default; }
-        }
+        AutoCompleteComboBoxSetting SettingOrDefault => Setting ?? AutoCompleteComboBoxSetting.Default;
+
         #endregion
 
         #region OnTextChanged
-        long revisionId;
-        string previousText;
+
+        private long revisionId;
+        private string previousText;
 
         struct TextBoxStatePreserver
             : IDisposable
         {
-            readonly TextBox textBox;
-            readonly int selectionStart;
-            readonly int selectionLength;
-            readonly string text;
+            private readonly TextBox textBox;
+            private readonly int selectionStart;
+            private readonly int selectionLength;
+            private readonly string text;
 
             public void Dispose()
             {
-                Debug.WriteLine($"Presrever dispose: '{textBox.Text}' [{textBox.SelectionStart}, {textBox.SelectionLength}] => '{text}' [{selectionStart}, {selectionLength}]");
+                Debug.WriteLine($"Preserver dispose: '{textBox.Text}' [{textBox.SelectionStart}, {textBox.SelectionLength}] => '{text}' [{selectionStart}, {selectionLength}]");
                 textBox.Text = text;
                 textBox.Select(selectionStart, selectionLength);
             }
@@ -150,11 +135,11 @@ namespace DotNetKit.Windows.Controls
                 selectionStart = textBox.SelectionStart;
                 selectionLength = textBox.SelectionLength;
                 text = textBox.Text;
-                Debug.WriteLine($"Presrever constructor: '{text}' [{selectionStart}, {selectionLength}]");
+                Debug.WriteLine($"Preserver constructor: '{text}' [{selectionStart}, {selectionLength}]");
             }
         }
 
-        static int CountWithMax<T>(IEnumerable<T> xs, Predicate<T> predicate, int maxCount)
+        private static int CountWithMax<T>(IEnumerable<T> xs, Predicate<T> predicate, int maxCount)
         {
             var count = 0;
             foreach (var x in xs)
@@ -168,13 +153,13 @@ namespace DotNetKit.Windows.Controls
             return count;
         }
 
-        void Unselect()
+        private void Unselect()
         {
             //var textBox = EditableTextBox;
             //textBox.Select(textBox.SelectionStart + textBox.SelectionLength, 0);
         }
 
-        void UpdateFilter(Predicate<object> filter)
+        private void UpdateFilter(Predicate<object> filter)
         {
             using (new TextBoxStatePreserver(EditableTextBox))
             using (Items.DeferRefresh())
@@ -184,7 +169,7 @@ namespace DotNetKit.Windows.Controls
             }
         }
 
-        void OpenDropDown(Predicate<object> filter)
+        private void OpenDropDown(Predicate<object> filter)
         {
             using (new TextBoxStatePreserver(EditableTextBox))
             {
@@ -194,7 +179,7 @@ namespace DotNetKit.Windows.Controls
             }
         }
 
-        void OpenDropDown()
+        private void OpenDropDown()
         {
             var filter = GetFilter();
             OpenDropDown(filter);
@@ -208,7 +193,7 @@ namespace DotNetKit.Windows.Controls
             }
         }
 
-        void UpdateSuggestionList()
+        private void UpdateSuggestionList()
         {
             var text = TextWithoutAutocomplete;
 
@@ -223,7 +208,7 @@ namespace DotNetKit.Windows.Controls
 
                 using (Items.DeferRefresh())
                 {
-                    Items.Filter = defaultItemsFilter;
+                    Items.Filter = _defaultItemsFilter;
                 }
             }
             else if (false && SelectedItem != null && TextFromItem(SelectedItem) == text)
@@ -244,7 +229,7 @@ namespace DotNetKit.Windows.Controls
 
                     var filter = GetFilter();
                     var maxCount = SettingOrDefault.MaxSuggestionCount;
-                    var count = CountWithMax(ItemsSource?.Cast<object>() ?? Enumerable.Empty<object>(), filter, maxCount);
+                    var count = CountWithMax(ItemsSource?.Cast<object>() ?? [], filter, maxCount);
                     UpdateFilter(filter);
 
                     if (1 < count && count <= maxCount)
@@ -278,7 +263,7 @@ namespace DotNetKit.Windows.Controls
 
         private int _eventDepth;
 
-        void OnTextChanged(object sender, TextChangedEventArgs e)
+        private void OnTextChanged(object sender, TextChangedEventArgs e)
         {
             if (_eventDepth > 0) return;
 
@@ -292,7 +277,7 @@ namespace DotNetKit.Windows.Controls
                 return;
             }
 
-            disposable.Content =
+            _disposable.Content =
                 new Timer(
                     state =>
                     {
@@ -307,6 +292,7 @@ namespace DotNetKit.Windows.Controls
                     Timeout.InfiniteTimeSpan
                 );
         }
+
         #endregion
 
         /* Progress
@@ -332,7 +318,7 @@ namespace DotNetKit.Windows.Controls
 
                 using (Items.DeferRefresh())
                 {
-                    Items.Filter = defaultItemsFilter;
+                    Items.Filter = _defaultItemsFilter;
                 }
             }
         }
@@ -349,20 +335,18 @@ namespace DotNetKit.Windows.Controls
             }
         }
 
-        Predicate<object> GetFilter()
+        private Predicate<object> GetFilter()
         {
             var filter = SettingOrDefault.GetFilter(TextWithoutAutocomplete, TextFromItem);
 
-            return defaultItemsFilter != null
-                ? i => defaultItemsFilter(i) && filter(i)
+            return _defaultItemsFilter != null
+                ? i => _defaultItemsFilter(i) && filter(i)
                 : filter;
         }
 
         public AutoCompleteComboBox()
         {
             InitializeComponent();
-
-            AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler(OnTextChanged));
         }
     }
 }
