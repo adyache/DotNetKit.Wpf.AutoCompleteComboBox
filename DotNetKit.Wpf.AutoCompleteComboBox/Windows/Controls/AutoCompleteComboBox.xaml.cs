@@ -257,7 +257,7 @@ namespace DotNetKit.Windows.Controls
                     var count = CountWithMax(ItemsSource?.Cast<object>() ?? [], filter, maxCount);
                     UpdateFilter(filter);
 
-                    if (1 < count && count <= maxCount)
+                    if (1 < count && count <= maxCount || count == 1 && !string.Equals(TextFromItem(Items[0]), Text, StringComparison.InvariantCultureIgnoreCase))
                     {
                         using (new TextBoxStatePreserver(EditableTextBox))
                         {
