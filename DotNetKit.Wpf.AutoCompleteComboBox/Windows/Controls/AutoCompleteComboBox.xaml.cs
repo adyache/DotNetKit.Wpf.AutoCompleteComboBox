@@ -173,6 +173,7 @@ namespace DotNetKit.Windows.Controls
         {
             using (new TextBoxStatePreserver(EditableTextBox))
             {
+                IsDropDownOpen = false;
                 UpdateFilter(filter);
                 IsDropDownOpen = true;
                 Unselect();
@@ -260,6 +261,7 @@ namespace DotNetKit.Windows.Controls
                     {
                         using (new TextBoxStatePreserver(EditableTextBox))
                         {
+                            IsDropDownOpen = false;
                             IsDropDownOpen = true; //OpenDropDown(filter);
                         }
                     }
