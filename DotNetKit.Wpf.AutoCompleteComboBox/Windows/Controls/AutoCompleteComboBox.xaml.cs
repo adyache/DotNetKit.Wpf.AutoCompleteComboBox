@@ -28,8 +28,8 @@ namespace DotNetKit.Windows.Controls
         public TextBox EditableTextBox
         {
             get
-                {
-                    const string name = "PART_EditableTextBox";
+            {
+                const string name = "PART_EditableTextBox";
                 return _editableTextBoxCache ??= (TextBox)VisualTreeModule.FindChild(this, name);
             }
         }
@@ -322,14 +322,17 @@ namespace DotNetKit.Windows.Controls
         #endregion
 
         /* Progress
-         * Selecting an item from dropdown (keyboard or mouse) resets filter.  Shouldn't until dropdown is closed
-         * Selecting an item from dropdown: keyboard doesn't work (sometimes?), mouse resets filter (ok) and doesn't clear (ok)
-         * Keeping autosearch item doesn't reset filter.  Even if closing dropdown is made to reset filter, keeping autosearch may never open the dropdown if there's only 1 suggestion.
-         * Closing dropdown should probably reset filter.
-         * Opening dropdown by the user should reset filter? unless non-empty text selection as after an autocomplete
+         * Fixed: When refiltering with the dropdown already open, lose down keys until dropdown is closed and re-opened
+         * Fixed: Selecting an item from dropdown (keyboard or mouse) resets filter.  Shouldn't until dropdown is closed
+         * Fixed: Selecting an item from dropdown: keyboard doesn't work (sometimes?), mouse resets filter (ok) and doesn't clear (ok)
+         * Fixed: Keeping auto-search item doesn't reset filter. Fixed by resetting on focus loss
+         * Fixed: Closing dropdown should reset filter.
+         * Fixed: Losing focus should reset filter.
+         * Fixed: Up/Down keys should NOT scroll through dropdown options
+         * Up/Down keys, and perhaps sometimes left/right, should raise some navigation event that can be handled outside.
          */
 
-        void ComboBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.Space)
             {
@@ -347,6 +350,13 @@ namespace DotNetKit.Windows.Controls
                     Items.Filter = _defaultItemsFilter;
                 }
             }
+            else if (Keyboard.Modifiers == ModifierKeys.None && e.IsDown && (e.Key == Key.Down || e.Key == Key.Up) && !IsDropDownOpen)
+            {
+                //todo move focus to the next control up/down
+                e.Handled = true;
+            }
+
+            if (!e.Handled) base.OnPreviewKeyDown(e);
         }
 
         private string TextWithoutAutocomplete
