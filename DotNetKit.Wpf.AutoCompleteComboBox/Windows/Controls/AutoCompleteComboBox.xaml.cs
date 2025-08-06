@@ -124,7 +124,7 @@ namespace DotNetKit.Windows.Controls
 
             public void Dispose()
             {
-                Debug.WriteLine($"Preserver dispose: '{textBox.Text}' [{textBox.SelectionStart}, {textBox.SelectionLength}] => '{text}' [{selectionStart}, {selectionLength}]");
+                //Debug.WriteLine($"Preserver dispose: '{textBox.Text}' [{textBox.SelectionStart}, {textBox.SelectionLength}] => '{text}' [{selectionStart}, {selectionLength}]");
                 textBox.Text = text;
                 textBox.Select(selectionStart, selectionLength);
             }
@@ -135,7 +135,7 @@ namespace DotNetKit.Windows.Controls
                 selectionStart = textBox.SelectionStart;
                 selectionLength = textBox.SelectionLength;
                 text = textBox.Text;
-                Debug.WriteLine($"Preserver constructor: '{text}' [{selectionStart}, {selectionLength}]");
+                //Debug.WriteLine($"Preserver constructor: '{text}' [{selectionStart}, {selectionLength}]");
             }
         }
 
@@ -227,7 +227,7 @@ namespace DotNetKit.Windows.Controls
 
             if (string.IsNullOrEmpty(Text))
             {
-                Debug.WriteLine("Update suggestion list - clearing selection, resetting filter");
+                //Debug.WriteLine("Update suggestion list - clearing selection, resetting filter");
                 IsDropDownOpen = false;
                 SelectedItem = null;
 
@@ -236,16 +236,15 @@ namespace DotNetKit.Windows.Controls
                     Items.Filter = _defaultItemsFilter;
                 }
             }
-            else if (false && SelectedItem != null && TextFromItem(SelectedItem) == text)
-            {
-                // It seems the user selected an item.
-                // Do nothing.
-            }
+            //else if (SelectedItem != null && TextFromItem(SelectedItem) == text)
+            //{
+            //    // It seems the user selected an item.
+            //    // Do nothing.
+            //}
             else
             {
                 using (NextEventDepth)
                 {
-
                     //using (new TextBoxStatePreserver(EditableTextBox))
                     //{
                     //    Debug.WriteLine("Setting selected item to null");
@@ -293,7 +292,7 @@ namespace DotNetKit.Windows.Controls
         {
             if (_eventDepth > 0) return;
 
-            Debug.WriteLine($"OnTextChanged. Open: {IsDropDownOpen} Text: '{Text}' Selection: [{EditableTextBox.SelectionStart}, {EditableTextBox.SelectionLength}], Selected item: {SelectedItem != null}");
+            //Debug.WriteLine($"OnTextChanged. Open: {IsDropDownOpen} Text: '{Text}' Selection: [{EditableTextBox.SelectionStart}, {EditableTextBox.SelectionLength}], Selected item: {SelectedItem != null}");
             var id = unchecked(++revisionId);
             var setting = SettingOrDefault;
 
@@ -341,7 +340,7 @@ namespace DotNetKit.Windows.Controls
             }
             else if (TextWithoutAutocomplete == string.Empty && (Keyboard.Modifiers & ~ModifierKeys.Shift) == ModifierKeys.None && e.IsDown && e.Key is >= Key.D0 and <= Key.Z)
             {
-                Debug.WriteLine("Key preview - Clearing selection, resetting filter");
+                //Debug.WriteLine("Key preview - Clearing selection, resetting filter");
                 IsDropDownOpen = false;
                 SelectedItem = null;
 
