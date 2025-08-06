@@ -193,6 +193,30 @@ namespace DotNetKit.Windows.Controls
             }
         }
 
+        protected override void OnDropDownClosed(EventArgs e)
+        {
+            //closing dropdown resets filter
+            base.OnDropDownClosed(e);
+
+            using (new TextBoxStatePreserver(EditableTextBox))
+            using (Items.DeferRefresh())
+            {
+                Items.Filter = _defaultItemsFilter;
+            }
+        }
+
+        protected override void OnLostFocus(RoutedEventArgs e)
+        {
+            //losing focus resets filter. useful when dropdown was never opened, e.g. on an auto-complete that resolved to a single item
+            using (new TextBoxStatePreserver(EditableTextBox))
+            using (Items.DeferRefresh())
+            {
+                Items.Filter = _defaultItemsFilter;
+            }
+
+            base.OnLostFocus(e);
+        }
+
         private void UpdateSuggestionList()
         {
             var text = TextWithoutAutocomplete;
