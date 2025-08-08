@@ -9,6 +9,6 @@
     d:DesignWidth="300"
     d:DesignHeight="300"
     IsEditable="True"
-    IsTextSearchEnabled="False"
+    IsTextSearchEnabled="True"
     TextBoxBase.TextChanged="OnTextChanged"
     />

@@ -10,7 +10,7 @@ using System.Windows.Media;
 
 namespace DotNetKit.Windows.Media
 {
-    static class VisualTreeModule
+    public static class VisualTreeModule
     {
         public static FrameworkElement FindChild(DependencyObject obj, string childName)
         {
@@ -39,6 +39,63 @@ namespace DotNetKit.Windows.Media
             }
 
             return null;
+        }
+
+        public static bool TryMoveToRow(object source, int delta)
+        {
+            if (source is not FrameworkElement child) return false;
+            var indices = new Stack<int>();
+            FrameworkElement? parent;
+
+            while (true)
+            {
+                parent = VisualTreeHelper.GetParent(child) as FrameworkElement;
+                if (parent == null) return false;
+                var childCount = VisualTreeHelper.GetChildrenCount(parent);
+                int idx;
+                if (childCount > 1)
+                {
+                    if (parent is not Panel panel) return false;
+                    idx = panel.Children.IndexOf(child);
+                }
+                else
+                {
+                    idx = 0;
+                }
+
+                if (parent.DataContext == child.DataContext)
+                {
+                    child = parent;
+                    indices.Push(idx);
+                    continue;
+                }
+
+                var newIdx = idx + delta;
+                if (newIdx < 0 || newIdx >= childCount) return false;
+                indices.Push(newIdx);
+                break;
+            }
+
+            var target = parent;
+            while (indices.TryPop(out var idx))
+            {
+                target = VisualTreeHelper.GetChild(target, idx) as FrameworkElement;
+                if (target == null) return false;
+            }
+
+            target.Focus();
+            return true;
+        }
+
+        public static bool TryMoveToColumn(object source, int delta)
+        {
+            if (source is not FrameworkElement child) return false;
+            if (child.Parent is not Panel parent) return false;
+            var idx = parent.Children.IndexOf(child);
+            var newIdx = idx + delta;
+            if (newIdx < 0 || newIdx >= parent.Children.Count) return false;
+            parent.Children[newIdx].Focus();
+            return true;
         }
     }
 }

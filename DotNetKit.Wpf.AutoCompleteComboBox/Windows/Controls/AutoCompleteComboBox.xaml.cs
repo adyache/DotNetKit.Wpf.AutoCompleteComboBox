@@ -80,13 +80,13 @@ namespace DotNetKit.Windows.Controls
                 comboBox.ItemsSource = newCollectionViewSource.View;
             }
 
-            comboBox.SelectedItem = previousSelectedItem;
+            //comboBox.SelectedItem = previousSelectedItem;
 
             // if ItemsSource doesn't contain previousSelectedItem
-            if (comboBox.SelectedItem != previousSelectedItem)
-            {
-                comboBox.SelectedItem = null;
-            }
+            //if (comboBox.SelectedItem != previousSelectedItem)
+            //{
+            //    comboBox.SelectedItem = null;
+            //}
         }
         #endregion ItemsSource
 
@@ -333,12 +333,14 @@ namespace DotNetKit.Windows.Controls
 
         protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
-            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.Space)
+            var noModifiers = e.KeyboardDevice.Modifiers == ModifierKeys.None;
+            
+            if (e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.Space)
             {
                 OpenDropDown();
                 e.Handled = true;
             }
-            else if (TextWithoutAutocomplete == string.Empty && (Keyboard.Modifiers & ~ModifierKeys.Shift) == ModifierKeys.None && e.IsDown && e.Key is >= Key.D0 and <= Key.Z)
+            else if (TextWithoutAutocomplete == string.Empty && (e.KeyboardDevice.Modifiers & ~ModifierKeys.Shift) == ModifierKeys.None && e.IsDown && e.Key is >= Key.D0 and <= Key.Z)
             {
                 //Debug.WriteLine("Key preview - Clearing selection, resetting filter");
                 IsDropDownOpen = false;
@@ -349,9 +351,24 @@ namespace DotNetKit.Windows.Controls
                     Items.Filter = _defaultItemsFilter;
                 }
             }
-            else if (Keyboard.Modifiers == ModifierKeys.None && e.IsDown && (e.Key == Key.Down || e.Key == Key.Up) && !IsDropDownOpen)
+            else if (noModifiers && e.Key == Key.Down && !IsDropDownOpen)
             {
-                //todo move focus to the next control up/down
+                VisualTreeModule.TryMoveToRow(e.Source, 1);
+                e.Handled = true;
+            }
+            else if (noModifiers && e.Key == Key.Up && !IsDropDownOpen)
+            {
+                VisualTreeModule.TryMoveToRow(e.Source, -1);
+                e.Handled = true;
+            }
+            else if (noModifiers && e.Key == Key.Right && EditableTextBox.SelectedText == EditableTextBox.Text)
+            {
+                VisualTreeModule.TryMoveToColumn(e.Source, 1);
+                e.Handled = true;
+            }
+            else if (noModifiers && e.Key == Key.Left && EditableTextBox.SelectedText == EditableTextBox.Text)
+            {
+                VisualTreeModule.TryMoveToColumn(e.Source, -1);
                 e.Handled = true;
             }
 
